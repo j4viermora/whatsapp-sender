@@ -9,7 +9,7 @@ Envía mensajes de WhatsApp personalizados a una lista de contactos leída desde
 - Normaliza teléfonos y agrega el código de país (por defecto Venezuela, `58`).
 - Verifica que cada número tenga WhatsApp antes de enviar; si no tiene, lo registra como `sin_whatsapp` y sigue con el próximo.
 - Los nombres de columna no distinguen mayúsculas ni acentos (`Teléfono`, `TELEFONO` y `telefono` son lo mismo).
-- Espera un tiempo aleatorio entre mensajes para reducir el riesgo de bloqueo.
+- Espera un tiempo aleatorio entre mensajes y, cada 30 mensajes enviados, descansa entre 10 y 15 minutos para reducir el riesgo de bloqueo.
 - Registra cada envío en `src/enviados.csv` y **reanuda** automáticamente: no reenvía a quien ya figura como `enviado`.
 - Modo prueba para ver los mensajes sin enviar nada.
 
@@ -89,6 +89,8 @@ Editá `src/config.js`. Las rutas son relativas a la carpeta `src/`, y las de lo
 | `codigoPais`      | Código de país a agregar si falta                             | `58` (Venezuela)         |
 | `plantilla`       | Archivo de texto con el mensaje (ver abajo)                   | `./mensaje.txt`          |
 | `esperaMin` / `esperaMax` | Rango de espera aleatoria entre mensajes (segundos)   | `60` / `180`             |
+| `mensajesPorTanda` | Mensajes enviados por tanda antes de un descanso (`0` = sin tandas) | `30`             |
+| `descansoMin` / `descansoMax` | Rango del descanso aleatorio entre tandas (minutos) | `10` / `15`              |
 | `log`             | Archivo CSV de registro                                       | `./enviados.csv`         |
 
 ## Mensaje

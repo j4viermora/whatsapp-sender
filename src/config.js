@@ -18,6 +18,12 @@ module.exports = {
   esperaMin: 30,
   esperaMax: 60,
 
+  // Tandas: después de enviar `mensajesPorTanda` mensajes, descansa entre `descansoMin` y
+  // `descansoMax` minutos antes de seguir. Poné 0 en mensajesPorTanda para no hacer tandas.
+  mensajesPorTanda: 30,
+  descansoMin: 10,
+  descansoMax: 15,
+
   // Archivo donde se registra cada envío (también sirve para reanudar)
   log: './enviados.csv',
 };

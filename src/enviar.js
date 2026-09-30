@@ -25,12 +25,17 @@ function duracion(seg) {
   return m < 60 ? `${m} min` : `${Math.floor(m / 60)}h ${m % 60}min`;
 }
 
+const reloj = (seg) => `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, '0')}`;
+
 const visible = (s) => s.replace(/\x1b\[[0-9;]*m/g, '').length;
 
 function mostrarBarra(hechos, total, extra = '') {
   if (!TTY) return;
   const pct = Math.round((hechos / total) * 100);
-  const restante = (total - hechos) * ((cfg.esperaMin + cfg.esperaMax) / 2 + 3);
+  let restante = (total - hechos) * ((cfg.esperaMin + cfg.esperaMax) / 2 + 3);
+  if (cfg.mensajesPorTanda > 0) {
+    restante += Math.floor((total - hechos) / cfg.mensajesPorTanda) * ((cfg.descansoMin + cfg.descansoMax) / 2) * 60;
+  }
   const partes = {
     cuenta: `${hechos}/${total} (${pct}%)`,
     stats: `\x1b[32m✓ ${conteo.enviado}\x1b[0m  \x1b[33m⊘ ${conteo.sin_whatsapp}\x1b[0m  \x1b[31m✗ ${conteo.error}\x1b[0m`,
@@ -146,6 +151,7 @@ async function main() {
 
   const total = pendientes.length;
   let reconexiones = 0;
+  let enviadosTanda = 0; // mensajes enviados desde el último descanso
   for (let i = 0; i < total && !detener; i++) {
     const { fila, tel } = pendientes[i];
     const prefijo = `[${hora()}] (${i + 1}/${total}) ${tel}`;
@@ -171,6 +177,7 @@ async function main() {
         await client.sendMessage(id._serialized, armarMensaje(fila));
       }
       resultado('enviado', '\x1b[32menviado\x1b[0m');
+      enviadosTanda++;
       reconexiones = 0;
     } catch (e) {
       if (!(client.caido || conexionPerdida(e))) {
@@ -205,7 +212,16 @@ async function main() {
       mostrarBarra(i + 1, total);
     }
 
-    if (i < total - 1 && !detener) {
+    if (i < total - 1 && !detener && cfg.mensajesPorTanda > 0 && enviadosTanda >= cfg.mensajesPorTanda) {
+      // Fin de la tanda: descanso largo en lugar de la espera normal
+      const seg = Math.round((cfg.descansoMin + Math.random() * (cfg.descansoMax - cfg.descansoMin)) * 60);
+      log(`[${hora()}] Tanda de ${enviadosTanda} mensajes completa. Descansando ${duracion(seg)}...`);
+      for (let s = seg; s > 0 && !detener; s--) {
+        mostrarBarra(i + 1, total, `descanso, sigue en ${reloj(s)}`);
+        await sleep(1000);
+      }
+      enviadosTanda = 0;
+    } else if (i < total - 1 && !detener) {
       const seg = Math.round(cfg.esperaMin + Math.random() * (cfg.esperaMax - cfg.esperaMin));
       if (!TTY) console.log(`   esperando ${seg}s...`);
       for (let s = seg; s > 0 && !detener; s--) {
