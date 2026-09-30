@@ -24,6 +24,21 @@ Envía mensajes de WhatsApp personalizados a una lista de contactos leída desde
 npm install
 ```
 
+## Primer uso: crear el archivo de contactos
+
+El repositorio **no incluye ningún archivo `.xlsx` ni `.csv`** (están en `.gitignore` porque contienen datos personales). La primera vez tenés que crearlos vos:
+
+1. Creá la carpeta `src/db/`:
+
+   ```bash
+   mkdir -p src/db
+   ```
+
+2. Guardá ahí tu archivo de contactos, por ejemplo `src/db/contactos.xlsx` (o `.csv`), con el formato que se describe abajo.
+3. Apuntá `excel` en `src/config.js` a ese archivo (`excel: './db/contactos.xlsx'`).
+
+El registro `src/enviados.csv` no hace falta crearlo: se genera solo en el primer envío.
+
 ## Formato de los contactos
 
 Puede ser un Excel (`.xlsx`) o un `.csv` (separado por `,` o `;`, en UTF-8). Los archivos van en `src/db/`; para elegir cuál usar, cambiá `excel` en `src/config.js`, por ejemplo `excel: './db/caracas.xlsx'`.
@@ -99,4 +114,4 @@ Solo los `enviado` se saltean al reanudar; los `sin_whatsapp` y `error` se reint
 ## Advertencias
 
 - WhatsApp no permite oficialmente la automatización de cuentas personales. Usalo con contactos que esperan tu mensaje, con volúmenes moderados y esperas razonables: el envío masivo puede provocar el bloqueo del número.
-- `src/db/` y `src/enviados.csv` contienen datos personales y están en `.gitignore` para no subirlos al repositorio.
+- `src/db/`, `src/enviados.csv` y cualquier archivo `.xlsx`, `.xls` o `.csv` contienen datos personales y están en `.gitignore` para no subirlos al repositorio.

@@ -2,10 +2,10 @@ node_modules
 .wwebjs_auth
 .wwebjs_cache
 
-# Datos personales
-contactos.xlsx
-contactos.csv
-enviados.csv
+# Datos personales: ningún Excel ni CSV se sube al repositorio
+*.xlsx
+*.xls
+*.csv
 
 src/db/
 
