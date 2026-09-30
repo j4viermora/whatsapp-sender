@@ -25,16 +25,30 @@ function duracion(seg) {
   return m < 60 ? `${m} min` : `${Math.floor(m / 60)}h ${m % 60}min`;
 }
 
+const visible = (s) => s.replace(/\x1b\[[0-9;]*m/g, '').length;
+
 function mostrarBarra(hechos, total, extra = '') {
   if (!TTY) return;
-  const ancho = 25;
-  const lleno = Math.round((hechos / total) * ancho);
   const pct = Math.round((hechos / total) * 100);
   const restante = (total - hechos) * ((cfg.esperaMin + cfg.esperaMax) / 2 + 3);
-  const barra = '\x1b[32m' + '█'.repeat(lleno) + '\x1b[90m' + '░'.repeat(ancho - lleno) + '\x1b[0m';
-  const stats = `\x1b[32m✓ ${conteo.enviado}\x1b[0m  \x1b[33m⊘ ${conteo.sin_whatsapp}\x1b[0m  \x1b[31m✗ ${conteo.error}\x1b[0m`;
-  const eta = hechos < total ? `  ~${duracion(restante)} restantes` : '';
-  process.stdout.write(`\r\x1b[K${barra} ${hechos}/${total} (${pct}%)  ${stats}${eta}${extra ? '  · ' + extra : ''}`);
+  const partes = {
+    cuenta: `${hechos}/${total} (${pct}%)`,
+    stats: `\x1b[32m✓ ${conteo.enviado}\x1b[0m  \x1b[33m⊘ ${conteo.sin_whatsapp}\x1b[0m  \x1b[31m✗ ${conteo.error}\x1b[0m`,
+    eta: hechos < total ? `~${duracion(restante)} restantes` : '',
+    extra,
+  };
+  // La línea nunca puede superar el ancho de la terminal: si se parte en dos, cada
+  // actualización deja un renglón nuevo. Si no entra, se sacan datos en este orden.
+  const cols = (process.stdout.columns || 80) - 1;
+  const texto = () => Object.values(partes).filter(Boolean).join('  ');
+  for (const k of ['eta', 'stats', 'extra']) {
+    if (visible(texto()) + 6 <= cols) break;
+    partes[k] = '';
+  }
+  const ancho = Math.max(0, Math.min(25, cols - visible(texto()) - 1));
+  const lleno = Math.round((hechos / total) * ancho);
+  const barra = ancho ? '\x1b[32m' + '█'.repeat(lleno) + '\x1b[90m' + '░'.repeat(ancho - lleno) + '\x1b[0m ' : '';
+  process.stdout.write(`\r\x1b[K${barra}${texto()}`);
 }
 
 // Imprime una línea normal sin pisar la barra
