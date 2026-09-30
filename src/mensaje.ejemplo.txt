@@ -1,0 +1,5 @@
+Hola, {nombre} 👋
+
+Soy <tu nombre>, de <tu empresa>. Te escribo porque...
+
+¿Te interesa que te cuente más? Respondé "SÍ" y coordinamos.

@@ -2,11 +2,18 @@ node_modules
 .wwebjs_auth
 .wwebjs_cache
 
-# Datos personales: ningún Excel ni CSV se sube al repositorio
+# Datos personales: ningún Excel ni CSV se sube al repositorio.
+# La primera vez creá tu archivo de contactos en src/db/ (ej. src/db/contactos.xlsx).
+# Ver "Primer uso" en el README.
 *.xlsx
 *.xls
 *.csv
 
 src/db/
+
+# Mensaje propio: no se sube al repositorio.
+# La primera vez crealo a partir del ejemplo:
+#   cp src/mensaje.ejemplo.txt src/mensaje.txt
+src/mensaje.txt
 
 .DS_Store

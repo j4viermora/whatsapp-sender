@@ -24,9 +24,11 @@ Envía mensajes de WhatsApp personalizados a una lista de contactos leída desde
 npm install
 ```
 
-## Primer uso: crear el archivo de contactos
+## Primer uso: crear los archivos de contactos y de mensaje
 
-El repositorio **no incluye ningún archivo `.xlsx` ni `.csv`** (están en `.gitignore` porque contienen datos personales). La primera vez tenés que crearlos vos:
+El repositorio **no incluye ningún archivo `.xlsx` ni `.csv`, ni el archivo `src/mensaje.txt`** (están en `.gitignore` porque contienen datos personales o tu propio texto). La primera vez tenés que crearlos vos.
+
+### Contactos
 
 1. Creá la carpeta `src/db/`:
 
@@ -36,6 +38,24 @@ El repositorio **no incluye ningún archivo `.xlsx` ni `.csv`** (están en `.git
 
 2. Guardá ahí tu archivo de contactos, por ejemplo `src/db/contactos.xlsx` (o `.csv`), con el formato que se describe abajo.
 3. Apuntá `excel` en `src/config.js` a ese archivo (`excel: './db/contactos.xlsx'`).
+
+Ejemplo mínimo de `src/db/contactos.csv`:
+
+```csv
+telefono,nombre
+04122464031,Ana
+0414-555-1234,Juan
+```
+
+### Mensaje
+
+Copiá el ejemplo y editalo con tu texto:
+
+```bash
+cp src/mensaje.ejemplo.txt src/mensaje.txt
+```
+
+Ver la sección [Mensaje](#mensaje) para el formato.
 
 El registro `src/enviados.csv` no hace falta crearlo: se genera solo en el primer envío.
 
@@ -73,12 +93,12 @@ Editá `src/config.js`. Las rutas son relativas a la carpeta `src/`, y las de lo
 
 ## Mensaje
 
-El texto del mensaje está en `src/mensaje.txt`: editalo con cualquier editor. Puede tener varias líneas y usar `{columna}` para insertar datos de cada contacto, por ejemplo:
+El texto del mensaje está en `src/mensaje.txt` (crealo la primera vez copiando `src/mensaje.ejemplo.txt`): editalo con cualquier editor. Puede tener varias líneas y usar `{columna}` para insertar datos de cada contacto, por ejemplo:
 
 ```
-Hola, equipo de {nombre} 👋
+Hola, {nombre} 👋
 
-Soy Javier, de Dentatools...
+Soy Ana, de Ferretería El Tornillo. Esta semana tenemos...
 ```
 
 Las variables tampoco distinguen mayúsculas ni acentos: `{nombre}` toma la columna `Nombre`. Si una variable no existe como columna, queda escrita tal cual (`{columna}`), así que revisá con `npm run prueba` antes de enviar.
@@ -114,4 +134,4 @@ Solo los `enviado` se saltean al reanudar; los `sin_whatsapp` y `error` se reint
 ## Advertencias
 
 - WhatsApp no permite oficialmente la automatización de cuentas personales. Usalo con contactos que esperan tu mensaje, con volúmenes moderados y esperas razonables: el envío masivo puede provocar el bloqueo del número.
-- `src/db/`, `src/enviados.csv` y cualquier archivo `.xlsx`, `.xls` o `.csv` contienen datos personales y están en `.gitignore` para no subirlos al repositorio.
+- `src/db/`, `src/enviados.csv`, `src/mensaje.txt` y cualquier archivo `.xlsx`, `.xls` o `.csv` están en `.gitignore` para no subir datos personales ni tu mensaje al repositorio.
