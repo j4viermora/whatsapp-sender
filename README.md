@@ -31,6 +31,7 @@ El código está en TypeScript y Bun lo ejecuta directamente, sin compilar. Para
 - `src/services/contacts.ts`: lee el Excel/CSV, normaliza teléfonos y arma el texto de cada mensaje.
 - `src/services/whatsapp.ts`: conexión con WhatsApp Web y envío de mensajes.
 - `src/services/sent-log.ts`: lee y escribe el registro `src/enviados.csv`.
+- `src/services/progress.ts`: barra de progreso y mensajes en la terminal.
 
 ## Primer uso: crear los archivos de contactos y de mensaje
 
