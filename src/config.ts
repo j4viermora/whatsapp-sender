@@ -1,17 +1,4 @@
-export interface Config {
-  contacts: string;
-  sheet: string | null;
-  phoneColumn: string;
-  attachmentColumn: string | null;
-  countryCode: string;
-  template: string;
-  minDelay: number;
-  maxDelay: number;
-  batchSize: number;
-  minBreak: number;
-  maxBreak: number;
-  log: string;
-}
+import type { Config } from "./types";
 
 const config: Config = {
   // Path to the contacts file (.xlsx or .csv) and sheet (null = first sheet; ignored for CSV)

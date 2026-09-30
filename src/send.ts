@@ -1,9 +1,16 @@
-import fs from 'node:fs';
 import path from 'node:path';
-import * as XLSX from 'xlsx';
-import qrcode from 'qrcode-terminal';
-import { Client, LocalAuth, MessageMedia } from 'whatsapp-web.js';
-import baseConfig, { type Config } from './config';
+import { type Config, type Pending, type Status } from './types';
+import baseConfig from './config';
+import {
+  attachmentPath,
+  buildMessage,
+  findPhoneColumn,
+  normalizePhone,
+  readRows,
+  readTemplate,
+} from './services/contacts';
+import { alreadyProcessed, record } from './services/sent-log';
+import { close, connect, connectionLost, sendMessage } from './services/whatsapp';
 
 // Paths in config.ts are relative to this folder, not to where the script is run from
 const cfg: Config = {
@@ -16,31 +23,8 @@ const cfg: Config = {
 const DRY_RUN = process.argv.includes('--dry-run');
 const MAX_RECONNECTS = 5;
 
-/** A spreadsheet row, keyed by normalized column name */
-type Row = Record<string, unknown>;
-
-/** Status written to the log. The values stay in Spanish so existing logs keep working. */
-type Status = 'enviado' | 'sin_whatsapp' | 'error';
-
-interface Pending {
-  row: Row;
-  phone: string;
-}
-
-/**
- * A WhatsApp Web session. `down` is set when WhatsApp reports a disconnection,
- * so the next send knows it has to reconnect. `client` is null if reconnecting failed.
- */
-interface Session {
-  client: Client | null;
-  down?: string;
-}
-
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 const clock = (): string => new Date().toLocaleTimeString('es-AR');
-// Column names without case or accents: "Teléfono" and "telefono" are the same column
-const normCol = (s: unknown): string =>
-  String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
@@ -91,69 +75,17 @@ function log(msg: string): void {
   console.log(msg);
 }
 
-function normalizePhone(value: unknown): string | null {
-  let t = String(value ?? '').replace(/\D/g, '');
-  if (!t) return null;
-  if (t.startsWith('00')) t = t.slice(2);
-  if (t.startsWith('0')) t = t.slice(1);
-  if (!t.startsWith(cfg.countryCode)) t = cfg.countryCode + t;
-  // Argentina: mobile numbers on WhatsApp have a 9 after the 54
-  if (cfg.countryCode === '54' && !t.startsWith('549')) t = '549' + t.slice(2);
-  return t;
-}
-
-const template = fs.readFileSync(cfg.template, 'utf8').trim();
-
-function buildMessage(row: Row): string {
-  const base = row.mensaje ? String(row.mensaje) : template;
-  return base.replace(/\{([^}]+)\}/g, (match: string, col: string) => String(row[normCol(col)] ?? match));
-}
-
-function readRows(): Row[] {
-  // CSVs are read as UTF-8 so accents don't break (XLSX.readFile uses another encoding)
-  const wb = /\.csv$/i.test(cfg.contacts)
-    ? XLSX.read(fs.readFileSync(cfg.contacts, 'utf8'), { type: 'string' })
-    : XLSX.readFile(cfg.contacts);
-  const sheetName = cfg.sheet || wb.SheetNames[0];
-  const sheet = sheetName ? wb.Sheets[sheetName] : undefined;
-  if (!sheet) throw new Error(`No existe la hoja "${sheetName}" en ${cfg.contacts}`);
-  return XLSX.utils
-    .sheet_to_json<Row>(sheet, { defval: '' })
-    .map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [normCol(k), v])));
-}
-
-// Final status of each phone in the log. Errors are retried; sent numbers and numbers
-// without WhatsApp are not, so they aren't checked again on every resume.
-function alreadyProcessed(): Map<string, Status> {
-  const statuses = new Map<string, Status>();
-  if (!fs.existsSync(cfg.log)) return statuses;
-  for (const line of fs.readFileSync(cfg.log, 'utf8').split('\n').slice(1)) {
-    const [, phone, status] = line.split(',');
-    if (phone && status && statuses.get(phone) !== 'enviado') statuses.set(phone, status as Status);
-  }
-  return statuses;
-}
-
-function record(phone: string, status: Status, detail = ''): void {
-  if (!fs.existsSync(cfg.log)) fs.writeFileSync(cfg.log, 'fecha,telefono,estado,detalle\n');
-  const clean = detail.replace(/[\n,]/g, ' ');
-  fs.appendFileSync(cfg.log, `${new Date().toISOString()},${phone},${status},${clean}\n`);
-}
-
 async function main(): Promise<void> {
-  const rows = readRows();
-  const processed = alreadyProcessed();
+  const rows = readRows(cfg.contacts, cfg.sheet);
+  const template = readTemplate(cfg.template);
+  const processed = alreadyProcessed(cfg.log);
   const skip = (phone: string): boolean => ['enviado', 'sin_whatsapp'].includes(processed.get(phone) ?? '');
-  // If there's no exact column, use the first one that starts the same (e.g. "telefono" → "telefono 1")
-  const columns = Object.keys(rows[0] ?? {});
-  const wanted = normCol(cfg.phoneColumn);
-  const phoneCol = columns.includes(wanted) ? wanted : columns.find((c) => c.startsWith(wanted));
-  if (!phoneCol) throw new Error(`No hay columna "${cfg.phoneColumn}" en el Excel. Columnas: ${columns.join(', ')}`);
+  const phoneCol = findPhoneColumn(rows, cfg.phoneColumn);
   // If a number appears several times in the spreadsheet, only the first row gets a message
   const seen = new Set<string>();
   const pending: Pending[] = [];
   for (const row of rows) {
-    const phone = normalizePhone(row[phoneCol]);
+    const phone = normalizePhone(row[phoneCol], cfg.countryCode);
     if (!phone || skip(phone) || seen.has(phone)) continue;
     seen.add(phone);
     pending.push({ row, phone });
@@ -167,7 +99,7 @@ async function main(): Promise<void> {
 
   if (DRY_RUN) {
     for (const { row, phone } of pending) {
-      console.log(`\n→ ${phone}\n${buildMessage(row)}`);
+      console.log(`\n→ ${phone}\n${buildMessage(row, template)}`);
     }
     console.log('\n(modo prueba: no se envió nada)');
     return;
@@ -181,7 +113,7 @@ async function main(): Promise<void> {
     log('\nDeteniendo después del mensaje actual... (Ctrl+C otra vez para forzar)');
   });
 
-  let session = await connect();
+  let session = await connect(log);
   log(`[${clock()}] Conectado a WhatsApp.\n`);
 
   const total = pending.length;
@@ -192,25 +124,16 @@ async function main(): Promise<void> {
     const prefix = `[${clock()}] (${i + 1}/${total}) ${phone}`;
     const result = (status: Status, text: string, detail?: string): void => {
       counts[status]++;
-      record(phone, status, detail);
+      record(cfg.log, phone, status, detail);
       log(`${prefix}: ${text}`);
     };
     showBar(i, total, `enviando a ${phone}...`);
     try {
-      if (session.down || !session.client) throw new Error(`WhatsApp se desconectó (${session.down})`);
-      const client = session.client;
-      const id = await client.getNumberId(phone);
-      if (!id) {
+      const attachment = attachmentPath(row, cfg.attachmentColumn, cfg.contacts);
+      const status = await sendMessage(session, phone, buildMessage(row, template), attachment);
+      if (status === 'sin_whatsapp') {
         result('sin_whatsapp', '\x1b[33msin WhatsApp\x1b[0m');
         continue;
-      }
-
-      const attachment = cfg.attachmentColumn && row[normCol(cfg.attachmentColumn)];
-      if (attachment) {
-        const media = MessageMedia.fromFilePath(path.resolve(path.dirname(cfg.contacts), String(attachment)));
-        await client.sendMessage(id._serialized, media, { caption: buildMessage(row) });
-      } else {
-        await client.sendMessage(id._serialized, buildMessage(row));
       }
       result('enviado', '\x1b[32menviado\x1b[0m');
       sentInBatch++;
@@ -236,7 +159,7 @@ async function main(): Promise<void> {
         if (stopping) break;
         try {
           showBar(i, total, 'reconectando...');
-          session = await connect(3 * 60 * 1000);
+          session = await connect(log, 3 * 60 * 1000);
           log(`[${clock()}] \x1b[32mReconectado a WhatsApp.\x1b[0m`);
         } catch (err) {
           log(`[${clock()}] No se pudo reconectar: ${errorMessage(err)}`);
@@ -273,63 +196,6 @@ async function main(): Promise<void> {
   await sleep(3000); // let the last send finish before closing
   await close(session.client);
   process.exit(0);
-}
-
-// Errors meaning the WhatsApp Web page was lost (not a problem with the number)
-function connectionLost(message: string): boolean {
-  return /detached Frame|Session closed|Target closed|Protocol error|Execution context was destroyed|WhatsApp se desconectó/i.test(
-    message
-  );
-}
-
-// Opens WhatsApp Web and waits until it's ready. If WhatsApp reports a disconnection,
-// it's stored in session.down so the next send reconnects.
-// With `timeoutMs` it fails if it doesn't connect in time (for unattended reconnects).
-function connect(timeoutMs?: number): Promise<Session> {
-  const client = new Client({
-    authStrategy: new LocalAuth({ dataPath: path.join(import.meta.dir, '..', '.wwebjs_auth') }),
-    puppeteer: { headless: true },
-  });
-  const session: Session = { client };
-  client.on('qr', (qr: string) => {
-    log('Escaneá este QR desde WhatsApp > Dispositivos vinculados:');
-    qrcode.generate(qr, { small: true });
-  });
-  client.on('disconnected', (reason) => {
-    session.down = String(reason || 'desconectado');
-  });
-
-  return new Promise<Session>((resolve, reject) => {
-    const timer =
-      timeoutMs !== undefined
-        ? setTimeout(() => {
-            void close(client);
-            reject(new Error(`WhatsApp no respondió en ${timeoutMs / 60000} minutos`));
-          }, timeoutMs)
-        : undefined;
-    client.once('ready', () => {
-      clearTimeout(timer);
-      resolve(session);
-    });
-    client.once('auth_failure', (message: string) => {
-      clearTimeout(timer);
-      void close(client);
-      reject(new Error(`Error de autenticación: ${message}`));
-    });
-    client.initialize().catch((e: unknown) => {
-      clearTimeout(timer);
-      void close(client);
-      reject(e);
-    });
-  });
-}
-
-async function close(client: Client | null): Promise<void> {
-  try {
-    await client?.destroy();
-  } catch {
-    // If the page was already broken, destroy can fail too: doesn't matter
-  }
 }
 
 main().catch((e: unknown) => {

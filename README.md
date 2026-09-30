@@ -24,7 +24,13 @@ Envía mensajes de WhatsApp personalizados a una lista de contactos leída desde
 bun install
 ```
 
-El código está en TypeScript (`src/send.ts` y `src/config.ts`) y Bun lo ejecuta directamente, sin compilar. Para revisar los tipos: `bun run typecheck`.
+El código está en TypeScript y Bun lo ejecuta directamente, sin compilar. Para revisar los tipos: `bun run typecheck`.
+
+- `src/send.ts`: punto de entrada; arma la lista de pendientes, muestra el progreso y maneja pausas, tandas y reconexiones.
+- `src/config.ts`: la configuración que editás vos.
+- `src/services/contacts.ts`: lee el Excel/CSV, normaliza teléfonos y arma el texto de cada mensaje.
+- `src/services/whatsapp.ts`: conexión con WhatsApp Web y envío de mensajes.
+- `src/services/sent-log.ts`: lee y escribe el registro `src/enviados.csv`.
 
 ## Primer uso: crear los archivos de contactos y de mensaje
 
