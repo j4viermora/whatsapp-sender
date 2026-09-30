@@ -9,7 +9,9 @@ node_modules
 *.xls
 *.csv
 
-src/db/
+# La carpeta src/db/ se sube vacía (solo con .gitkeep); su contenido no
+src/db/*
+!src/db/.gitkeep
 
 # Mensaje propio: no se sube al repositorio.
 # La primera vez crealo a partir del ejemplo:

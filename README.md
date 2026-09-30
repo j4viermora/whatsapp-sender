@@ -30,14 +30,8 @@ El repositorio **no incluye ningún archivo `.xlsx` ni `.csv`, ni el archivo `sr
 
 ### Contactos
 
-1. Creá la carpeta `src/db/`:
-
-   ```bash
-   mkdir -p src/db
-   ```
-
-2. Guardá ahí tu archivo de contactos, por ejemplo `src/db/contactos.xlsx` (o `.csv`), con el formato que se describe abajo.
-3. Apuntá `excel` en `src/config.js` a ese archivo (`excel: './db/contactos.xlsx'`).
+1. Guardá tu archivo de contactos en la carpeta `src/db/` (ya viene creada, vacía), por ejemplo `src/db/contactos.xlsx` (o `.csv`), con el formato que se describe abajo.
+2. Apuntá `excel` en `src/config.js` a ese archivo (`excel: './db/contactos.xlsx'`).
 
 Ejemplo mínimo de `src/db/contactos.csv`:
 
