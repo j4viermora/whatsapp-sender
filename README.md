@@ -15,14 +15,16 @@ Envía mensajes de WhatsApp personalizados a una lista de contactos leída desde
 
 ## Requisitos
 
-- Node.js 18 o superior
+- [Bun](https://bun.sh) 1.1 o superior (`curl -fsSL https://bun.sh/install | bash`, o `mise use -g bun`)
 - Una cuenta de WhatsApp en el teléfono para escanear el QR
 
 ## Instalación
 
 ```bash
-npm install
+bun install
 ```
+
+El código está en TypeScript (`src/send.ts` y `src/config.ts`) y Bun lo ejecuta directamente, sin compilar. Para revisar los tipos: `bun run typecheck`.
 
 ## Primer uso: crear los archivos de contactos y de mensaje
 
@@ -31,7 +33,7 @@ El repositorio **no incluye ningún archivo `.xlsx` ni `.csv`, ni el archivo `sr
 ### Contactos
 
 1. Guardá tu archivo de contactos en la carpeta `src/db/` (ya viene creada, vacía), por ejemplo `src/db/contactos.xlsx` (o `.csv`), con el formato que se describe abajo.
-2. Apuntá `excel` en `src/config.js` a ese archivo (`excel: './db/contactos.xlsx'`).
+2. Apuntá `contacts` en `src/config.ts` a ese archivo (`contacts: './db/contactos.xlsx'`).
 
 Ejemplo mínimo de `src/db/contactos.csv`:
 
@@ -55,7 +57,7 @@ El registro `src/enviados.csv` no hace falta crearlo: se genera solo en el prime
 
 ## Formato de los contactos
 
-Puede ser un Excel (`.xlsx`) o un `.csv` (separado por `,` o `;`, en UTF-8). Los archivos van en `src/db/`; para elegir cuál usar, cambiá `excel` en `src/config.js`, por ejemplo `excel: './db/caracas.xlsx'`.
+Puede ser un Excel (`.xlsx`) o un `.csv` (separado por `,` o `;`, en UTF-8). Los archivos van en `src/db/`; para elegir cuál usar, cambiá `contacts` en `src/config.ts`, por ejemplo `contacts: './db/caracas.xlsx'`.
 
 La primera fila debe tener los nombres de las columnas. Ejemplo:
 
@@ -65,26 +67,26 @@ La primera fila debe tener los nombres de las columnas. Ejemplo:
 | 0414-555-1234   | Juan   | Hola Juan, mensaje especial |                      |
 
 - Los nombres de columna no distinguen mayúsculas ni acentos: `Nombre`, `nombre` y `NOMBRE` son la misma columna.
-- `telefono`: se aceptan paréntesis, puntos, espacios, guiones, `+` y `0` o `00` iniciales; se limpian solos. Si falta el código de país, se agrega el de `codigoPais` (`(0412)246.4031` → `584122464031`). Si no hay una columna llamada exactamente `telefono`, se usa la primera que empiece así (por ejemplo `Teléfono 1`).
+- `telefono`: se aceptan paréntesis, puntos, espacios, guiones, `+` y `0` o `00` iniciales; se limpian solos. Si falta el código de país, se agrega el de `countryCode` (`(0412)246.4031` → `584122464031`). Si no hay una columna llamada exactamente `telefono`, se usa la primera que empiece así (por ejemplo `Teléfono 1`).
 - `mensaje`: si tiene valor, reemplaza a la plantilla para esa fila.
 - `adjunto`: ruta a un archivo; el mensaje se envía como epígrafe.
 - Cualquier otra columna puede usarse en la plantilla como `{columna}`.
 
 ## Configuración
 
-Editá `src/config.js`. Las rutas son relativas a la carpeta `src/`, y las de los adjuntos, relativas a la carpeta del archivo de contactos.
+Editá `src/config.ts`. Las rutas son relativas a la carpeta `src/`, y las de los adjuntos, relativas a la carpeta del archivo de contactos.
 
 | Opción            | Descripción                                                   | Valor por defecto        |
 |-------------------|---------------------------------------------------------------|--------------------------|
-| `excel`           | Ruta al archivo de contactos (`.xlsx` o `.csv`)               | `./db/contactos.xlsx`    |
-| `hoja`            | Nombre de la hoja (`null` = primera)                          | `null`                   |
-| `columnaTelefono` | Columna con el teléfono (o prefijo, ej. `Teléfono 1`)         | `telefono`               |
-| `columnaAdjunto`  | Columna con la ruta del adjunto                               | `adjunto`                |
-| `codigoPais`      | Código de país a agregar si falta                             | `58` (Venezuela)         |
-| `plantilla`       | Archivo de texto con el mensaje (ver abajo)                   | `./mensaje.txt`          |
-| `esperaMin` / `esperaMax` | Rango de espera aleatoria entre mensajes (segundos)   | `60` / `180`             |
-| `mensajesPorTanda` | Mensajes enviados por tanda antes de un descanso (`0` = sin tandas) | `30`             |
-| `descansoMin` / `descansoMax` | Rango del descanso aleatorio entre tandas (minutos) | `10` / `15`              |
+| `contacts`        | Ruta al archivo de contactos (`.xlsx` o `.csv`)               | `./db/contactos.xlsx`    |
+| `sheet`           | Nombre de la hoja (`null` = primera)                          | `null`                   |
+| `phoneColumn`     | Columna con el teléfono (o prefijo, ej. `Teléfono 1`)         | `telefono`               |
+| `attachmentColumn` | Columna con la ruta del adjunto                               | `adjunto`                |
+| `countryCode`     | Código de país a agregar si falta                             | `58` (Venezuela)         |
+| `template`        | Archivo de texto con el mensaje (ver abajo)                   | `./mensaje.txt`          |
+| `minDelay` / `maxDelay` | Rango de espera aleatoria entre mensajes (segundos)   | `60` / `180`             |
+| `batchSize`      | Mensajes enviados por tanda antes de un descanso (`0` = sin tandas) | `30`             |
+| `minBreak` / `maxBreak` | Rango del descanso aleatorio entre tandas (minutos) | `10` / `15`              |
 | `log`             | Archivo CSV de registro                                       | `./enviados.csv`         |
 
 ## Mensaje
@@ -97,20 +99,20 @@ Hola, {nombre} 👋
 Soy Ana, de Ferretería El Tornillo. Esta semana tenemos...
 ```
 
-Las variables tampoco distinguen mayúsculas ni acentos: `{nombre}` toma la columna `Nombre`. Si una variable no existe como columna, queda escrita tal cual (`{columna}`), así que revisá con `npm run prueba` antes de enviar.
+Las variables tampoco distinguen mayúsculas ni acentos: `{nombre}` toma la columna `Nombre`. Si una variable no existe como columna, queda escrita tal cual (`{columna}`), así que revisá con `bun run dry-run` antes de enviar.
 
 ## Uso
 
 1. **Probar** (muestra cada número y mensaje, no envía nada):
 
    ```bash
-   npm run prueba
+   bun run dry-run
    ```
 
 2. **Enviar**:
 
    ```bash
-   npm run enviar
+   bun run send
    ```
 
    La primera vez se muestra un QR en la terminal: escanealo desde WhatsApp → *Dispositivos vinculados*. La sesión queda guardada en `.wwebjs_auth/`, así que las siguientes veces no hace falta.

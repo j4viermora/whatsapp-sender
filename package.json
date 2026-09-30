@@ -2,19 +2,27 @@
   "name": "whatsapp-sender",
   "version": "1.0.0",
   "description": "",
-  "main": "src/enviar.js",
+  "main": "src/send.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "prueba": "node src/enviar.js --prueba",
-    "enviar": "node src/enviar.js"
+    "dry-run": "bun src/send.ts --dry-run",
+    "send": "bun src/send.ts",
+    "typecheck": "tsc"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
     "qrcode-terminal": "^0.12.0",
     "whatsapp-web.js": "^1.34.7",
     "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2",
+    "@types/qrcode-terminal": "^0.12.2",
+    "typescript": "^7.0.2"
+  },
+  "engines": {
+    "bun": ">=1.1"
   }
 }
