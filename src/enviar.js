@@ -86,14 +86,16 @@ function leerFilas() {
   );
 }
 
-function yaEnviados() {
-  if (!fs.existsSync(cfg.log)) return new Set();
-  return new Set(
-    fs.readFileSync(cfg.log, 'utf8').split('\n').slice(1)
-      .map((l) => l.split(','))
-      .filter((c) => c[2] === 'enviado')
-      .map((c) => c[1])
-  );
+// Estado final de cada teléfono en el log. Los que dieron error se reintentan; los enviados
+// y los sin WhatsApp no, para no revisarlos de nuevo cada vez que se reanuda.
+function yaProcesados() {
+  const estados = new Map();
+  if (!fs.existsSync(cfg.log)) return estados;
+  for (const l of fs.readFileSync(cfg.log, 'utf8').split('\n').slice(1)) {
+    const [, tel, estado] = l.split(',');
+    if (tel && estados.get(tel) !== 'enviado') estados.set(tel, estado);
+  }
+  return estados;
 }
 
 function registrar(telefono, estado, detalle = '') {
@@ -104,17 +106,24 @@ function registrar(telefono, estado, detalle = '') {
 
 async function main() {
   const filas = leerFilas();
-  const enviados = yaEnviados();
+  const procesados = yaProcesados();
+  const saltear = (tel) => ['enviado', 'sin_whatsapp'].includes(procesados.get(tel));
   // Si no hay columna exacta, usa la primera que empiece igual (ej. "telefono" → "telefono 1")
   const columnas = Object.keys(filas[0] || {});
   const buscada = normCol(cfg.columnaTelefono);
   const colTel = columnas.includes(buscada) ? buscada : columnas.find((c) => c.startsWith(buscada));
   if (!colTel) throw new Error(`No hay columna "${cfg.columnaTelefono}" en el Excel. Columnas: ${columnas.join(', ')}`);
+  // Si un número aparece varias veces en el Excel, se le envía solo a la primera fila
+  const vistos = new Set();
   const pendientes = filas
     .map((f) => ({ fila: f, tel: normalizarTelefono(f[colTel]) }))
-    .filter(({ tel }) => tel && !enviados.has(tel));
+    .filter(({ tel }) => tel && !saltear(tel) && !vistos.has(tel) && vistos.add(tel));
 
-  console.log(`${filas.length} filas en el Excel, ${enviados.size} ya enviadas, ${pendientes.length} pendientes.`);
+  const cuantos = (estado) => [...procesados.values()].filter((e) => e === estado).length;
+  console.log(
+    `${filas.length} filas en el Excel: ${cuantos('enviado')} ya enviadas, ` +
+      `${cuantos('sin_whatsapp')} sin WhatsApp (se saltean), ${pendientes.length} pendientes.`
+  );
 
   if (DRY_RUN) {
     for (const { fila, tel } of pendientes) {

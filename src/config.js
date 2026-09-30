@@ -16,7 +16,7 @@ module.exports = {
 
   // Espera aleatoria entre mensajes (segundos)
   esperaMin: 30,
-  esperaMax: 120,
+  esperaMax: 60,
 
   // Archivo donde se registra cada envío (también sirve para reanudar)
   log: './enviados.csv',
