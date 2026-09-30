@@ -1,0 +1,12 @@
+node_modules
+.wwebjs_auth
+.wwebjs_cache
+
+# Datos personales
+contactos.xlsx
+contactos.csv
+enviados.csv
+
+src/db/
+
+.DS_Store

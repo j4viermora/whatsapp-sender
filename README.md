@@ -1,0 +1,102 @@
+# whatsapp-sender
+
+Envía mensajes de WhatsApp personalizados a una lista de contactos leída desde un Excel, usando [whatsapp-web.js](https://github.com/pedroslopez/whatsapp-web.js) (tu propia cuenta, vinculada como dispositivo).
+
+## Características
+
+- Lee contactos desde un `.xlsx` y arma cada mensaje con una plantilla (`{columna}` se reemplaza por el valor de esa fila).
+- Permite un mensaje propio por fila (columna `mensaje`) y un adjunto opcional (PDF, imagen, etc.).
+- Normaliza teléfonos y agrega el código de país (por defecto Venezuela, `58`).
+- Verifica que cada número tenga WhatsApp antes de enviar; si no tiene, lo registra como `sin_whatsapp` y sigue con el próximo.
+- Los nombres de columna no distinguen mayúsculas ni acentos (`Teléfono`, `TELEFONO` y `telefono` son lo mismo).
+- Espera un tiempo aleatorio entre mensajes para reducir el riesgo de bloqueo.
+- Registra cada envío en `src/enviados.csv` y **reanuda** automáticamente: no reenvía a quien ya figura como `enviado`.
+- Modo prueba para ver los mensajes sin enviar nada.
+
+## Requisitos
+
+- Node.js 18 o superior
+- Una cuenta de WhatsApp en el teléfono para escanear el QR
+
+## Instalación
+
+```bash
+npm install
+```
+
+## Formato de los contactos
+
+Puede ser un Excel (`.xlsx`) o un `.csv` (separado por `,` o `;`, en UTF-8). Los archivos van en `src/db/`; para elegir cuál usar, cambiá `excel` en `src/config.js`, por ejemplo `excel: './db/caracas.xlsx'`.
+
+La primera fila debe tener los nombres de las columnas. Ejemplo:
+
+| Teléfono        | Nombre | mensaje (opcional)          | adjunto (opcional)   |
+|-----------------|--------|-----------------------------|----------------------|
+| (0412)246.4031  | Ana    |                             | ./archivos/promo.pdf |
+| 0414-555-1234   | Juan   | Hola Juan, mensaje especial |                      |
+
+- Los nombres de columna no distinguen mayúsculas ni acentos: `Nombre`, `nombre` y `NOMBRE` son la misma columna.
+- `telefono`: se aceptan paréntesis, puntos, espacios, guiones, `+` y `0` o `00` iniciales; se limpian solos. Si falta el código de país, se agrega el de `codigoPais` (`(0412)246.4031` → `584122464031`). Si no hay una columna llamada exactamente `telefono`, se usa la primera que empiece así (por ejemplo `Teléfono 1`).
+- `mensaje`: si tiene valor, reemplaza a la plantilla para esa fila.
+- `adjunto`: ruta a un archivo; el mensaje se envía como epígrafe.
+- Cualquier otra columna puede usarse en la plantilla como `{columna}`.
+
+## Configuración
+
+Editá `src/config.js`. Las rutas son relativas a la carpeta `src/`, y las de los adjuntos, relativas a la carpeta del archivo de contactos.
+
+| Opción            | Descripción                                                   | Valor por defecto        |
+|-------------------|---------------------------------------------------------------|--------------------------|
+| `excel`           | Ruta al archivo de contactos (`.xlsx` o `.csv`)               | `./db/contactos.xlsx`    |
+| `hoja`            | Nombre de la hoja (`null` = primera)                          | `null`                   |
+| `columnaTelefono` | Columna con el teléfono (o prefijo, ej. `Teléfono 1`)         | `telefono`               |
+| `columnaAdjunto`  | Columna con la ruta del adjunto                               | `adjunto`                |
+| `codigoPais`      | Código de país a agregar si falta                             | `58` (Venezuela)         |
+| `plantilla`       | Archivo de texto con el mensaje (ver abajo)                   | `./mensaje.txt`          |
+| `esperaMin` / `esperaMax` | Rango de espera aleatoria entre mensajes (segundos)   | `60` / `180`             |
+| `log`             | Archivo CSV de registro                                       | `./enviados.csv`         |
+
+## Mensaje
+
+El texto del mensaje está en `src/mensaje.txt`: editalo con cualquier editor. Puede tener varias líneas y usar `{columna}` para insertar datos de cada contacto, por ejemplo:
+
+```
+Hola, equipo de {nombre} 👋
+
+Soy Javier, de Dentatools...
+```
+
+Las variables tampoco distinguen mayúsculas ni acentos: `{nombre}` toma la columna `Nombre`. Si una variable no existe como columna, queda escrita tal cual (`{columna}`), así que revisá con `npm run prueba` antes de enviar.
+
+## Uso
+
+1. **Probar** (muestra cada número y mensaje, no envía nada):
+
+   ```bash
+   npm run prueba
+   ```
+
+2. **Enviar**:
+
+   ```bash
+   npm run enviar
+   ```
+
+   La primera vez se muestra un QR en la terminal: escanealo desde WhatsApp → *Dispositivos vinculados*. La sesión queda guardada en `.wwebjs_auth/`, así que las siguientes veces no hace falta.
+
+3. **Detener**: `Ctrl+C` termina después del mensaje en curso; `Ctrl+C` de nuevo fuerza la salida. Al volver a ejecutar, continúa con los pendientes.
+
+## Registro (`src/enviados.csv`)
+
+Columnas: `fecha,telefono,estado,detalle`. Estados posibles:
+
+- `enviado` — el mensaje se envió.
+- `sin_whatsapp` — el número no tiene WhatsApp.
+- `error` — falló el envío (el detalle trae el motivo).
+
+Solo los `enviado` se saltean al reanudar; los `sin_whatsapp` y `error` se reintentan. Para empezar de cero, borrá `src/enviados.csv`.
+
+## Advertencias
+
+- WhatsApp no permite oficialmente la automatización de cuentas personales. Usalo con contactos que esperan tu mensaje, con volúmenes moderados y esperas razonables: el envío masivo puede provocar el bloqueo del número.
+- `src/db/` y `src/enviados.csv` contienen datos personales y están en `.gitignore` para no subirlos al repositorio.
